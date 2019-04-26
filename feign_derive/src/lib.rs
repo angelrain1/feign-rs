@@ -217,18 +217,13 @@ pub fn feign(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> p
 
     let mut item_impl = impl_trait(&trait_ast);
     for item in &trait_ast.items {
-        match item {
-            syn::TraitItem::Method(item_method) => {
-                if let None = item_method.default.clone() {
-                    let sig = &item_method.sig;
-                    let mapping = extract_mapping(item_method);
-                    let block = impl_call(&feign, &mapping);
-                    let impl_item_method: syn::ImplItem = parse_quote! { #sig #block };
-                    item_impl.items.push(impl_item_method);
-                }
-            }
-            _ => {
-                // do noting
+        if let syn::TraitItem::Method(item_method) = item {
+            if item_method.default.is_none() {
+                let sig = &item_method.sig;
+                let mapping = extract_mapping(item_method);
+                let block = impl_call(&feign, &mapping);
+                let impl_item_method: syn::ImplItem = parse_quote! { #sig #block };
+                item_impl.items.push(impl_item_method);
             }
         }
     }
@@ -252,7 +247,7 @@ fn impl_call(feign: &FeignAttr, mapping: &MappingAttr) -> syn::Block {
     let template: &str = &format!("http://{{}}:{{}}/{}{}", &feign.path, &mapping.path);
     let method = &mapping.method;
 
-    let url: syn::Block = if let Some(port) = feign.port {
+    let url: syn::Expr = if let Some(port) = feign.port {
         parse_quote! {
             {
                 let (ip, _) = self.next_addr()?;
@@ -268,7 +263,7 @@ fn impl_call(feign: &FeignAttr, mapping: &MappingAttr) -> syn::Block {
         }
     };
 
-    let request: syn::Block = parse_quote! {
+    let request: syn::Expr = parse_quote! {
         {
             let url = #url;
             self.client.request(#method, &url)
