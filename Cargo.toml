@@ -1,0 +1,2 @@
+[workspace]
+members = ["feign", "feign_derive"]
